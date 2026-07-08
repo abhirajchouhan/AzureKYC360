@@ -25,7 +25,7 @@ print(f"   Bronze  : {bronze}")
 print(f"   Silver  : {silver}")
 print(f"   Gold    : {gold}")
 
-# COMMAND ----------
+
 
 # ── Cell 2: Verify all 5 source files are visible ───────────────────
 
@@ -51,7 +51,7 @@ for folder in folders:
         print(f"❌ {folder}/ — NOT FOUND: {str(e)}")
     print()
 
-# COMMAND ----------
+
 
 # ── Cell 3: Bronze — Customer Onboarding CSV → Delta ────────────────
 # Reads raw CSV from landing zone.
@@ -96,7 +96,7 @@ print(f"   Format        : Delta")
 print(f"   Partition     : ingest_year / ingest_month / ingest_day")
 print(f"   Path          : bronze/customer_onboarding/")
 
-# COMMAND ----------
+
 
 # ── Cell 4: Bronze — Transaction Feed JSON → Delta ──────────────────
 # Reads newline-delimited JSON from landing zone.
@@ -140,7 +140,7 @@ print(f"   Format        : Delta")
 print(f"   Partition     : ingest_year / ingest_month / ingest_day")
 print(f"   Path          : bronze/transaction_feed/")
 
-# COMMAND ----------
+
 
 # ── Cell 5: Bronze — KYC Documents JSON → Delta ─────────────────────
 # Reads JSON array from landing zone.
@@ -182,7 +182,7 @@ print(f"   Format        : Delta")
 print(f"   Partition     : ingest_year / ingest_month / ingest_day")
 print(f"   Path          : bronze/kyc_documents/")
 
-# COMMAND ----------
+
 
 # ── Cell 6: Bronze — Watchlist/Sanctions CSV → Delta ────────────────
 # Reads sanctions list CSV from landing zone.
@@ -224,7 +224,7 @@ print(f"   Format        : Delta")
 print(f"   Partition     : ingest_year / ingest_month / ingest_day")
 print(f"   Path          : bronze/watchlist_sanctions/")
 
-# COMMAND ----------
+
 
 # ── Cell 7: Bronze — Account Activity Parquet → Delta (Autoloader) ──
 # Autoloader monitors landing/account_activity/ continuously.
@@ -266,12 +266,11 @@ print(f"   Format        : Delta")
 print(f"   Partition     : ingest_year / ingest_month / ingest_day")
 print(f"   Path          : bronze/account_activity/")
 
-# COMMAND ----------
+
 
 # ── Cell 8: Verify all 5 Bronze Delta tables ────────────────────────
 # Confirm all tables written correctly.
 # Show row counts and schema for each.
-# This is your screenshot for GitHub.
 
 print("=== BRONZE LAYER SUMMARY ===\n")
 
@@ -303,10 +302,9 @@ print(f"{'='*40}")
 print(f"Total rows across all Bronze tables: {total_rows}")
 print(f"All tables in Delta format. Ready for Silver layer.")
 
-# COMMAND ----------
+
 
 # ── Cell 9: Show sample rows from each Bronze table ─────────────────
-# Take screenshot of this output for GitHub.
 # Shows data actually landed correctly with correct columns.
 
 print("=== SAMPLE DATA PREVIEW ===\n")

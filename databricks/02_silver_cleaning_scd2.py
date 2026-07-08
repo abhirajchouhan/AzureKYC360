@@ -1,7 +1,6 @@
 # Databricks notebook source
 # ── Cell 1: Configure ADLS Gen2 Access ──────────────────────────────
 # Same configuration as Bronze notebook.
-# Must run this cell first every time notebook starts.
 
 storage_account_name = "adlskyc360"
 storage_account_key  = ""
@@ -21,7 +20,7 @@ print("✅ ADLS Gen2 access configured.")
 print(f"   Bronze : {bronze}")
 print(f"   Silver : {silver}")
 
-# COMMAND ----------
+
 
 # ── Cell 2: PII Masking — Customer Onboarding ───────────────────────
 # Why: SSN and date_of_birth are PII (Personally Identifiable Info).
@@ -83,7 +82,7 @@ df_onboarding_masked.select(
     "customer_id", "full_name", "ssn", "date_of_birth", "email"
 ).show(3, truncate=False)
 
-# COMMAND ----------
+
 
 # ── Cell 3: Deduplication — All 5 Tables ────────────────────────────
 # Why: Source systems sometimes send duplicate records.
@@ -130,7 +129,7 @@ print(f"   kyc_documents       : {df_kyc_deduped.count()} rows")
 print(f"   watchlist_sanctions : {df_watchlist_deduped.count()} rows")
 print(f"   account_activity    : {df_activity_deduped.count()} rows")
 
-# COMMAND ----------
+
 
 # ── Cell 4: SCD Type 2 — Customer Onboarding ────────────────────────
 # Why: Customer details change over time (address, segment, phone).
@@ -191,7 +190,7 @@ spark.read.format("delta").load(silver_path) \
             "effective_from", "effective_to", "is_current") \
     .show(5, truncate=False)
 
-# COMMAND ----------
+
 
 # ── Cell 5: Write Remaining 4 Silver Tables ─────────────────────────
 # transaction_feed, kyc_documents, watchlist_sanctions, account_activity
@@ -225,7 +224,7 @@ write_silver(df_kyc_deduped,       "kyc_documents")
 write_silver(df_watchlist_deduped, "watchlist_sanctions")
 write_silver(df_activity_deduped,  "account_activity")
 
-# COMMAND ----------
+
 
 # ── Cell 6: Schema Validation ────────────────────────────────────────
 # Why: Ensure all Silver tables have expected columns.
@@ -277,7 +276,7 @@ if all_passed:
 else:
     print("❌ Fix schema issues before proceeding to Gold.")
 
-# COMMAND ----------
+
 
 # ── Cell 7: Verify All Silver Tables ────────────────────────────────
 # Final verification before Gold layer.

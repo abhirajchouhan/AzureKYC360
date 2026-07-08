@@ -16,7 +16,7 @@ print("✅ ADLS Gen2 access configured.")
 print(f"   Silver : {silver}")
 print(f"   Gold   : {gold}")
 
-# COMMAND ----------
+
 
 # ── Cell 2: Read All Silver Tables ──────────────────────────────────
 # Read all 5 cleaned Silver tables.
@@ -46,7 +46,7 @@ print(f"   KYC Documents       : {df_kyc.count()}")
 print(f"   Watchlist           : {df_watchlist.count()}")
 print(f"   Account Activity    : {df_activity.count()}")
 
-# COMMAND ----------
+
 
 # ── Cell 3: AML Flag ─────────────────────────────────────────────────
 # Why: Anti-Money Laundering screening.
@@ -92,7 +92,7 @@ df_aml.filter("aml_flag = true") \
     .select("customer_id", "full_name", "aml_flag") \
     .show(5, truncate=False)
 
-# COMMAND ----------
+
 
 # ── Cell 4: Transaction Velocity Score ──────────────────────────────
 # Why: High transaction velocity = higher KYC risk.
@@ -146,7 +146,7 @@ print(f"✅ Transaction Velocity Score complete.")
 print(f"   Customers scored : {df_txn_velocity.count()}")
 df_txn_velocity.groupBy("velocity_risk").count().show()
 
-# COMMAND ----------
+
 
 # ── Cell 5: KYC Risk Score ───────────────────────────────────────────
 # Why: Final KYC risk score per customer.
@@ -225,7 +225,7 @@ df_risk = df_risk.withColumn(
 print(f"✅ KYC Risk Score complete.")
 df_risk.groupBy("kyc_risk_level").count().orderBy("kyc_risk_level").show()
 
-# COMMAND ----------
+
 
 # ── Cell 6: Dormancy Alert + High Risk Profile ───────────────────────
 # Dormancy Alert:
@@ -280,7 +280,7 @@ df_risk.filter("dormancy_alert = true") \
     .select("customer_id", "dormant_flag", "doc_status", "dormancy_alert") \
     .show(5, truncate=False)
 
-# COMMAND ----------
+
 
 # ── Cell 7: Customer 360 Unified View ───────────────────────────────
 # Why: Single unified view of each customer across all 5 sources.
@@ -346,7 +346,7 @@ df_customer_360.select(
     "aml_flag", "dormancy_alert", "high_risk_profile"
 ).show(10, truncate=False)
 
-# COMMAND ----------
+
 
 # ── Cell 8: Verify Gold Layer ────────────────────────────────────────
 # Final verification of Gold layer.
