@@ -1,10 +1,20 @@
 # Databricks notebook source
-# ── Cell 1: Configure ADLS Gen2 Access ──────────────────────────────
-# Same configuration as Bronze notebook.
+# ── Cell 1: Configure ADLS Gen2 Access — Secure via Key Vault ───────
+# Storage key is read from Azure Key Vault via Databricks Secret Scope.
+# No credentials hardcoded in any notebook.
+# Secret Scope: kyc360-scope
+# Key Vault: kv-kyc360
+# Secret: adls-storage-key
 
 storage_account_name = "adlskyc360"
-storage_account_key  = ""
 
+# Read key securely from Key Vault
+storage_account_key = dbutils.secrets.get(
+    scope="kyc360-scope",
+    key="adls-storage-key"
+)
+
+# Set in Spark config
 spark.conf.set(
     f"fs.azure.account.key.{storage_account_name}.dfs.core.windows.net",
     storage_account_key
@@ -16,11 +26,13 @@ bronze  = f"abfss://bronze@{storage_account_name}.dfs.core.windows.net"
 silver  = f"abfss://silver@{storage_account_name}.dfs.core.windows.net"
 gold    = f"abfss://gold@{storage_account_name}.dfs.core.windows.net"
 
-print("✅ ADLS Gen2 access configured.")
-print(f"   Bronze : {bronze}")
-print(f"   Silver : {silver}")
+print("✅ ADLS Gen2 access configured securely via Key Vault.")
+print(f"   Landing : {landing}")
+print(f"   Bronze  : {bronze}")
+print(f"   Silver  : {silver}")
+print(f"   Gold    : {gold}")
 
-
+# COMMAND ----------
 
 # ── Cell 2: PII Masking — Customer Onboarding ───────────────────────
 # Why: SSN and date_of_birth are PII (Personally Identifiable Info).
@@ -30,13 +42,7 @@ print(f"   Silver : {silver}")
 # Email → mask local part: a***@example.com
 # These masked values go to Silver. Raw PII stays in Bronze only.
 
-storage_account_name = "adlskyc360"
-storage_account_key  = ""
-
-spark.conf.set(
-    f"fs.azure.account.key.{storage_account_name}.dfs.core.windows.net",
-    storage_account_key
-)
+# Key already set in Cell 1 — no need to repeat
 
 from pyspark.sql.functions import (
     col, regexp_replace, substring, concat,
@@ -82,7 +88,7 @@ df_onboarding_masked.select(
     "customer_id", "full_name", "ssn", "date_of_birth", "email"
 ).show(3, truncate=False)
 
-
+# COMMAND ----------
 
 # ── Cell 3: Deduplication — All 5 Tables ────────────────────────────
 # Why: Source systems sometimes send duplicate records.
@@ -129,7 +135,7 @@ print(f"   kyc_documents       : {df_kyc_deduped.count()} rows")
 print(f"   watchlist_sanctions : {df_watchlist_deduped.count()} rows")
 print(f"   account_activity    : {df_activity_deduped.count()} rows")
 
-
+# COMMAND ----------
 
 # ── Cell 4: SCD Type 2 — Customer Onboarding ────────────────────────
 # Why: Customer details change over time (address, segment, phone).
@@ -139,31 +145,65 @@ print(f"   account_activity    : {df_activity_deduped.count()} rows")
 #   effective_to   → when this version was superseded (9999 = current)
 #   is_current     → True for latest version only
 # This is critical for KYC — regulators want historical audit trail.
+# SCD2 implementation.
+# First run: write all records with is_current = True.
+# Subsequent runs: expire changed records, insert new versions.
 
-from pyspark.sql.functions import (
-    current_timestamp, lit, col
-)
+
+from pyspark.sql.functions import current_timestamp, lit, col
 from pyspark.sql.types import BooleanType
-from delta.tables import DeltaTable
+
+storage_account_key = dbutils.secrets.get(
+    scope="kyc360-scope",
+    key="adls-storage-key"
+)
+spark.conf.set(
+    "fs.azure.account.key.adlskyc360.dfs.core.windows.net",
+    storage_account_key
+)
+
+silver = f"abfss://silver@adlskyc360.dfs.core.windows.net"
+silver_path = f"{silver}/customer_onboarding/"
 
 # Add SCD2 columns to incoming data
 df_new = df_onboarding_deduped \
     .withColumn("effective_from", current_timestamp()) \
-    .withColumn("effective_to",   lit("9999-12-31 00:00:00").cast("timestamp")) \
-    .withColumn("is_current",     lit(True).cast(BooleanType()))
-
-silver_path = f"{silver}/customer_onboarding/"
+    .withColumn("effective_to", lit("9999-12-31 00:00:00").cast("timestamp")) \
+    .withColumn("is_current", lit(True).cast(BooleanType()))
 
 # Check if Silver table exists
+import os
 try:
+    existing_count = spark.read.format("delta").load(silver_path).count()
+    table_exists = existing_count > 0
+except Exception:
+    table_exists = False
+
+if not table_exists:
+    # First run — write fresh
+    df_new.write \
+        .format("delta") \
+        .mode("overwrite") \
+        .option("overwriteSchema", "true") \
+        .save(silver_path)
+    print(f"✅ SCD Type 2 — first write complete.")
+    print(f"   Rows written  : {df_new.count()}")
+else:
+    # Subsequent runs — MERGE
+    from delta.tables import DeltaTable
     dt = DeltaTable.forPath(spark, silver_path)
-    
-    # MERGE — SCD Type 2 logic
-    # If customer exists and data changed → expire old record, insert new
-    # If customer is new → insert
+
     dt.alias("existing").merge(
         df_new.alias("incoming"),
-        "existing.customer_id = incoming.customer_id AND existing.is_current = true"
+        """
+        existing.customer_id = incoming.customer_id 
+        AND existing.is_current = true
+        AND (
+            existing.customer_segment != incoming.customer_segment
+            OR existing.country != incoming.country
+            OR existing.phone != incoming.phone
+        )
+        """
     ).whenMatchedUpdate(
         set={
             "is_current": "false",
@@ -172,25 +212,20 @@ try:
     ).whenNotMatchedInsertAll() \
      .execute()
 
-    print("✅ SCD Type 2 MERGE complete — existing table updated.")
+    print(f"✅ SCD Type 2 MERGE complete.")
 
-except Exception:
-    # First run — table does not exist yet — write fresh
-    df_new.write \
-        .format("delta") \
-        .mode("overwrite") \
-        .option("overwriteSchema", "true") \
-        .save(silver_path)
-    
-    print("✅ SCD Type 2 — first write complete.")
+# Verify
+df_result = spark.read.format("delta").load(silver_path)
+print(f"\n   Total rows    : {df_result.count()}")
+print(f"   Current rows  : {df_result.filter(col('is_current') == True).count()}")
+print(f"   Expired rows  : {df_result.filter(col('is_current') == False).count()}")
 
-# Show SCD2 columns
-spark.read.format("delta").load(silver_path) \
-    .select("customer_id", "full_name", "customer_segment",
-            "effective_from", "effective_to", "is_current") \
-    .show(5, truncate=False)
+df_result.select(
+    "customer_id", "full_name", "customer_segment",
+    "effective_from", "effective_to", "is_current"
+).show(5, truncate=False)
 
-
+# COMMAND ----------
 
 # ── Cell 5: Write Remaining 4 Silver Tables ─────────────────────────
 # transaction_feed, kyc_documents, watchlist_sanctions, account_activity
@@ -224,7 +259,7 @@ write_silver(df_kyc_deduped,       "kyc_documents")
 write_silver(df_watchlist_deduped, "watchlist_sanctions")
 write_silver(df_activity_deduped,  "account_activity")
 
-
+# COMMAND ----------
 
 # ── Cell 6: Schema Validation ────────────────────────────────────────
 # Why: Ensure all Silver tables have expected columns.
@@ -276,11 +311,10 @@ if all_passed:
 else:
     print("❌ Fix schema issues before proceeding to Gold.")
 
-
+# COMMAND ----------
 
 # ── Cell 7: Verify All Silver Tables ────────────────────────────────
 # Final verification before Gold layer.
-# Take screenshot of this output for GitHub.
 
 print("=== SILVER LAYER SUMMARY ===\n")
 

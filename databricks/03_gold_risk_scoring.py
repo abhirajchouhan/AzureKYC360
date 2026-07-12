@@ -1,8 +1,16 @@
 # Databricks notebook source
 # ── Cell 1: Configure ADLS Gen2 Access ──────────────────────────────
 
+# storage_account_name = "adlskyc360"
+# storage_account_key  = ""
+
 storage_account_name = "adlskyc360"
-storage_account_key  = ""
+
+# Read key securely from Key Vault
+storage_account_key = dbutils.secrets.get(
+    scope="kyc360-scope",
+    key="adls-storage-key"
+)
 
 spark.conf.set(
     f"fs.azure.account.key.{storage_account_name}.dfs.core.windows.net",
@@ -16,14 +24,21 @@ print("✅ ADLS Gen2 access configured.")
 print(f"   Silver : {silver}")
 print(f"   Gold   : {gold}")
 
-
+# COMMAND ----------
 
 # ── Cell 2: Read All Silver Tables ──────────────────────────────────
 # Read all 5 cleaned Silver tables.
 # These are the inputs for all Gold layer calculations.
 
+from pyspark.sql.functions import col
+
 storage_account_name = "adlskyc360"
-storage_account_key  = ""
+
+# Read key securely from Key Vault
+storage_account_key = dbutils.secrets.get(
+    scope="kyc360-scope",
+    key="adls-storage-key"
+)
 
 spark.conf.set(
     f"fs.azure.account.key.{storage_account_name}.dfs.core.windows.net",
@@ -37,7 +52,8 @@ df_watchlist  = spark.read.format("delta").load(f"{silver}/watchlist_sanctions/"
 df_activity   = spark.read.format("delta").load(f"{silver}/account_activity/")
 
 # Filter customers — current records only (SCD2)
-df_customers = df_customers.filter("is_current = true")
+# df_customers = df_customers.filter("is_current = true")
+df_customers = df_customers.filter(col("is_current") == True)
 
 print("✅ All Silver tables loaded.")
 print(f"   Customers (current) : {df_customers.count()}")
@@ -46,7 +62,7 @@ print(f"   KYC Documents       : {df_kyc.count()}")
 print(f"   Watchlist           : {df_watchlist.count()}")
 print(f"   Account Activity    : {df_activity.count()}")
 
-
+# COMMAND ----------
 
 # ── Cell 3: AML Flag ─────────────────────────────────────────────────
 # Why: Anti-Money Laundering screening.
@@ -57,7 +73,12 @@ print(f"   Account Activity    : {df_activity.count()}")
 # In production → fuzzy matching (Levenshtein distance).
 
 storage_account_name = "adlskyc360"
-storage_account_key  = ""
+
+# Read key securely from Key Vault
+storage_account_key = dbutils.secrets.get(
+    scope="kyc360-scope",
+    key="adls-storage-key"
+)
 
 spark.conf.set(
     f"fs.azure.account.key.{storage_account_name}.dfs.core.windows.net",
@@ -92,7 +113,7 @@ df_aml.filter("aml_flag = true") \
     .select("customer_id", "full_name", "aml_flag") \
     .show(5, truncate=False)
 
-
+# COMMAND ----------
 
 # ── Cell 4: Transaction Velocity Score ──────────────────────────────
 # Why: High transaction velocity = higher KYC risk.
@@ -106,7 +127,12 @@ df_aml.filter("aml_flag = true") \
 #   LOW    → everything else
 
 storage_account_name = "adlskyc360"
-storage_account_key  = ""
+
+# Read key securely from Key Vault
+storage_account_key = dbutils.secrets.get(
+    scope="kyc360-scope",
+    key="adls-storage-key"
+)
 
 spark.conf.set(
     f"fs.azure.account.key.{storage_account_name}.dfs.core.windows.net",
@@ -146,7 +172,7 @@ print(f"✅ Transaction Velocity Score complete.")
 print(f"   Customers scored : {df_txn_velocity.count()}")
 df_txn_velocity.groupBy("velocity_risk").count().show()
 
-
+# COMMAND ----------
 
 # ── Cell 5: KYC Risk Score ───────────────────────────────────────────
 # Why: Final KYC risk score per customer.
@@ -171,7 +197,12 @@ df_txn_velocity.groupBy("velocity_risk").count().show()
 #   < 3  → LOW
 
 storage_account_name = "adlskyc360"
-storage_account_key  = ""
+
+# Read key securely from Key Vault
+storage_account_key = dbutils.secrets.get(
+    scope="kyc360-scope",
+    key="adls-storage-key"
+)
 
 spark.conf.set(
     f"fs.azure.account.key.{storage_account_name}.dfs.core.windows.net",
@@ -225,7 +256,7 @@ df_risk = df_risk.withColumn(
 print(f"✅ KYC Risk Score complete.")
 df_risk.groupBy("kyc_risk_level").count().orderBy("kyc_risk_level").show()
 
-
+# COMMAND ----------
 
 # ── Cell 6: Dormancy Alert + High Risk Profile ───────────────────────
 # Dormancy Alert:
@@ -240,7 +271,12 @@ df_risk.groupBy("kyc_risk_level").count().orderBy("kyc_risk_level").show()
 #   These customers require enhanced due diligence (EDD).
 
 storage_account_name = "adlskyc360"
-storage_account_key  = ""
+
+# Read key securely from Key Vault
+storage_account_key = dbutils.secrets.get(
+    scope="kyc360-scope",
+    key="adls-storage-key"
+)
 
 spark.conf.set(
     f"fs.azure.account.key.{storage_account_name}.dfs.core.windows.net",
@@ -280,7 +316,7 @@ df_risk.filter("dormancy_alert = true") \
     .select("customer_id", "dormant_flag", "doc_status", "dormancy_alert") \
     .show(5, truncate=False)
 
-
+# COMMAND ----------
 
 # ── Cell 7: Customer 360 Unified View ───────────────────────────────
 # Why: Single unified view of each customer across all 5 sources.
@@ -288,11 +324,12 @@ df_risk.filter("dormancy_alert = true") \
 # This is what Synapse and Power BI will query.
 # Contains: identity + risk score + AML + dormancy + high risk profile.
 
-storage_account_name = "adlskyc360"
-storage_account_key  = ""
-
+storage_account_key = dbutils.secrets.get(
+    scope="kyc360-scope",
+    key="adls-storage-key"
+)
 spark.conf.set(
-    f"fs.azure.account.key.{storage_account_name}.dfs.core.windows.net",
+    "fs.azure.account.key.adlskyc360.dfs.core.windows.net",
     storage_account_key
 )
 
@@ -346,20 +383,20 @@ df_customer_360.select(
     "aml_flag", "dormancy_alert", "high_risk_profile"
 ).show(10, truncate=False)
 
-
+# COMMAND ----------
 
 # ── Cell 8: Verify Gold Layer ────────────────────────────────────────
 # Final verification of Gold layer.
 # Take screenshot of this output for GitHub.
 
-storage_account_name = "adlskyc360"
-storage_account_key  = ""
-
+storage_account_key = dbutils.secrets.get(
+    scope="kyc360-scope",
+    key="adls-storage-key"
+)
 spark.conf.set(
-    f"fs.azure.account.key.{storage_account_name}.dfs.core.windows.net",
+    "fs.azure.account.key.adlskyc360.dfs.core.windows.net",
     storage_account_key
 )
-
 print("=== GOLD LAYER SUMMARY ===\n")
 
 df_gold = spark.read.format("delta").load(f"{gold}/customer_360/")
