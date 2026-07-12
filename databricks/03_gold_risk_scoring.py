@@ -7,15 +7,15 @@
 storage_account_name = "adlskyc360"
 
 # Read key securely from Key Vault
-storage_account_key = dbutils.secrets.get(
-    scope="kyc360-scope",
-    key="adls-storage-key"
-)
+# storage_account_key = dbutils.secrets.get(
+#     scope="kyc360-scope",
+#     key="adls-storage-key"
+# )
 
-spark.conf.set(
-    f"fs.azure.account.key.{storage_account_name}.dfs.core.windows.net",
-    storage_account_key
-)
+# spark.conf.set(
+#     f"fs.azure.account.key.{storage_account_name}.dfs.core.windows.net",
+#     storage_account_key
+# )
 
 silver  = f"abfss://silver@{storage_account_name}.dfs.core.windows.net"
 gold    = f"abfss://gold@{storage_account_name}.dfs.core.windows.net"
@@ -35,15 +35,15 @@ from pyspark.sql.functions import col
 storage_account_name = "adlskyc360"
 
 # Read key securely from Key Vault
-storage_account_key = dbutils.secrets.get(
-    scope="kyc360-scope",
-    key="adls-storage-key"
-)
+# storage_account_key = dbutils.secrets.get(
+#     scope="kyc360-scope",
+#     key="adls-storage-key"
+# )
 
-spark.conf.set(
-    f"fs.azure.account.key.{storage_account_name}.dfs.core.windows.net",
-    storage_account_key
-)
+# spark.conf.set(
+#     f"fs.azure.account.key.{storage_account_name}.dfs.core.windows.net",
+#     storage_account_key
+# )
 
 df_customers  = spark.read.format("delta").load(f"{silver}/customer_onboarding/")
 df_txns       = spark.read.format("delta").load(f"{silver}/transaction_feed/")
@@ -75,15 +75,15 @@ print(f"   Account Activity    : {df_activity.count()}")
 storage_account_name = "adlskyc360"
 
 # Read key securely from Key Vault
-storage_account_key = dbutils.secrets.get(
-    scope="kyc360-scope",
-    key="adls-storage-key"
-)
+# storage_account_key = dbutils.secrets.get(
+#     scope="kyc360-scope",
+#     key="adls-storage-key"
+# )
 
-spark.conf.set(
-    f"fs.azure.account.key.{storage_account_name}.dfs.core.windows.net",
-    storage_account_key
-)
+# spark.conf.set(
+#     f"fs.azure.account.key.{storage_account_name}.dfs.core.windows.net",
+#     storage_account_key
+# )
 
 from pyspark.sql.functions import (
     col, when, lit, countDistinct,
@@ -129,15 +129,15 @@ df_aml.filter("aml_flag = true") \
 storage_account_name = "adlskyc360"
 
 # Read key securely from Key Vault
-storage_account_key = dbutils.secrets.get(
-    scope="kyc360-scope",
-    key="adls-storage-key"
-)
+# storage_account_key = dbutils.secrets.get(
+#     scope="kyc360-scope",
+#     key="adls-storage-key"
+# )
 
-spark.conf.set(
-    f"fs.azure.account.key.{storage_account_name}.dfs.core.windows.net",
-    storage_account_key
-)
+# spark.conf.set(
+#     f"fs.azure.account.key.{storage_account_name}.dfs.core.windows.net",
+#     storage_account_key
+# )
 
 from pyspark.sql.functions import (
     col, when, count, sum as spark_sum,
@@ -273,15 +273,15 @@ df_risk.groupBy("kyc_risk_level").count().orderBy("kyc_risk_level").show()
 storage_account_name = "adlskyc360"
 
 # Read key securely from Key Vault
-storage_account_key = dbutils.secrets.get(
-    scope="kyc360-scope",
-    key="adls-storage-key"
-)
+# storage_account_key = dbutils.secrets.get(
+#     scope="kyc360-scope",
+#     key="adls-storage-key"
+# )
 
-spark.conf.set(
-    f"fs.azure.account.key.{storage_account_name}.dfs.core.windows.net",
-    storage_account_key
-)
+# spark.conf.set(
+#     f"fs.azure.account.key.{storage_account_name}.dfs.core.windows.net",
+#     storage_account_key
+# )
 
 from pyspark.sql.functions import col, when, lit
 
@@ -324,14 +324,14 @@ df_risk.filter("dormancy_alert = true") \
 # This is what Synapse and Power BI will query.
 # Contains: identity + risk score + AML + dormancy + high risk profile.
 
-storage_account_key = dbutils.secrets.get(
-    scope="kyc360-scope",
-    key="adls-storage-key"
-)
-spark.conf.set(
-    "fs.azure.account.key.adlskyc360.dfs.core.windows.net",
-    storage_account_key
-)
+# storage_account_key = dbutils.secrets.get(
+#     scope="kyc360-scope",
+#     key="adls-storage-key"
+# )
+# spark.conf.set(
+#     "fs.azure.account.key.adlskyc360.dfs.core.windows.net",
+#     storage_account_key
+# )
 
 from pyspark.sql.functions import current_timestamp
 
@@ -389,14 +389,14 @@ df_customer_360.select(
 # Final verification of Gold layer.
 # Take screenshot of this output for GitHub.
 
-storage_account_key = dbutils.secrets.get(
-    scope="kyc360-scope",
-    key="adls-storage-key"
-)
-spark.conf.set(
-    "fs.azure.account.key.adlskyc360.dfs.core.windows.net",
-    storage_account_key
-)
+# storage_account_key = dbutils.secrets.get(
+#     scope="kyc360-scope",
+#     key="adls-storage-key"
+# )
+# spark.conf.set(
+#     "fs.azure.account.key.adlskyc360.dfs.core.windows.net",
+#     storage_account_key
+# )
 print("=== GOLD LAYER SUMMARY ===\n")
 
 df_gold = spark.read.format("delta").load(f"{gold}/customer_360/")

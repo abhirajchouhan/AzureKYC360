@@ -12,15 +12,15 @@
 storage_account_name = "adlskyc360"
 
 # Read key securely from Key Vault
-storage_account_key = dbutils.secrets.get(
-    scope="kyc360-scope",
-    key="adls-storage-key"
-)
+# storage_account_key = dbutils.secrets.get(
+#     scope="kyc360-scope",
+#     key="adls-storage-key"
+# ) 
 
-spark.conf.set(
-    f"fs.azure.account.key.{storage_account_name}.dfs.core.windows.net",
-    storage_account_key
-)
+# spark.conf.set(
+#     f"fs.azure.account.key.{storage_account_name}.dfs.core.windows.net",
+#     storage_account_key
+# )
 
 # Define base paths — use these throughout all notebooks
 landing = f"abfss://landing@{storage_account_name}.dfs.core.windows.net"
@@ -246,14 +246,14 @@ from pyspark.sql.functions import (
     year, month, dayofmonth
 )
 
-storage_account_key = dbutils.secrets.get(
-    scope="kyc360-scope",
-    key="adls-storage-key"
-)
-spark.conf.set(
-    "fs.azure.account.key.adlskyc360.dfs.core.windows.net",
-    storage_account_key
-)
+# storage_account_key = dbutils.secrets.get(
+#     scope="kyc360-scope",
+#     key="adls-storage-key"
+# )
+# spark.conf.set(
+#     "fs.azure.account.key.adlskyc360.dfs.core.windows.net",
+#     storage_account_key
+# )
 
 checkpoint_path = f"{bronze}/_checkpoints/account_activity"
 
@@ -297,14 +297,14 @@ print(f"   Path      : bronze/account_activity/")
 # Show row counts and schema for each.
 # This is your screenshot for GitHub.
 
-storage_account_key = dbutils.secrets.get(
-    scope="kyc360-scope",
-    key="adls-storage-key"
-)
-spark.conf.set(
-    "fs.azure.account.key.adlskyc360.dfs.core.windows.net",
-    storage_account_key
-)
+# storage_account_key = dbutils.secrets.get(
+#     scope="kyc360-scope",
+#     key="adls-storage-key"
+# )
+# spark.conf.set(
+#     "fs.azure.account.key.adlskyc360.dfs.core.windows.net",
+#     storage_account_key
+# )
 
 print("=== BRONZE LAYER SUMMARY ===\n")
 
