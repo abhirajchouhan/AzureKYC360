@@ -8,17 +8,17 @@
 
 storage_account_name = "adlskyc360"
 
-# Read key securely from Key Vault
-storage_account_key = dbutils.secrets.get(
-    scope="kyc360-scope",
-    key="adls-storage-key"
-)
+# # Read key securely from Key Vault
+# storage_account_key = dbutils.secrets.get(
+#     scope="kyc360-scope",
+#     key="adls-storage-key"
+# )
 
-# Set in Spark config
-spark.conf.set(
-    f"fs.azure.account.key.{storage_account_name}.dfs.core.windows.net",
-    storage_account_key
-)
+# # Set in Spark config
+# spark.conf.set(
+#     f"fs.azure.account.key.{storage_account_name}.dfs.core.windows.net",
+#     storage_account_key
+# )
 
 # Base paths
 landing = f"abfss://landing@{storage_account_name}.dfs.core.windows.net"
@@ -153,14 +153,14 @@ print(f"   account_activity    : {df_activity_deduped.count()} rows")
 from pyspark.sql.functions import current_timestamp, lit, col
 from pyspark.sql.types import BooleanType
 
-storage_account_key = dbutils.secrets.get(
-    scope="kyc360-scope",
-    key="adls-storage-key"
-)
-spark.conf.set(
-    "fs.azure.account.key.adlskyc360.dfs.core.windows.net",
-    storage_account_key
-)
+# storage_account_key = dbutils.secrets.get(
+#     scope="kyc360-scope",
+#     key="adls-storage-key"
+# )
+# spark.conf.set(
+#     "fs.azure.account.key.adlskyc360.dfs.core.windows.net",
+#     storage_account_key
+# )
 
 silver = f"abfss://silver@adlskyc360.dfs.core.windows.net"
 silver_path = f"{silver}/customer_onboarding/"
