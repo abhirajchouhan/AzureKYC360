@@ -1,13 +1,22 @@
 # Databricks notebook source
-# ── Cell 1: Configure ADLS Gen2 Direct Access ───────────────────────
-# Why: Runtime 17.3 + Unity Catalog does not support dbutils.fs.mount
-# Modern approach: set storage account key in Spark config.
-# Databricks then accesses ADLS directly using abfss:// protocol.
+# ── Cell 1: Configure ADLS Gen2 Access — Secure via Key Vault ───────
+# Storage key is read from Azure Key Vault via Databricks Secret Scope.
+# No credentials hardcoded in any notebook.
+# Secret Scope: kyc360-scope
+# Key Vault: kv-kyc360
+# Secret: adls-storage-key
+
+# storage_account_name = "adlskyc360"
+# storage_account_key  = ""
 
 storage_account_name = "adlskyc360"
-storage_account_key  = ""
 
-# Set key in Spark session config
+# Read key securely from Key Vault
+storage_account_key = dbutils.secrets.get(
+    scope="kyc360-scope",
+    key="adls-storage-key"
+)
+
 spark.conf.set(
     f"fs.azure.account.key.{storage_account_name}.dfs.core.windows.net",
     storage_account_key
@@ -25,7 +34,7 @@ print(f"   Bronze  : {bronze}")
 print(f"   Silver  : {silver}")
 print(f"   Gold    : {gold}")
 
-
+# COMMAND ----------
 
 # ── Cell 2: Verify all 5 source files are visible ───────────────────
 
@@ -51,7 +60,7 @@ for folder in folders:
         print(f"❌ {folder}/ — NOT FOUND: {str(e)}")
     print()
 
-
+# COMMAND ----------
 
 # ── Cell 3: Bronze — Customer Onboarding CSV → Delta ────────────────
 # Reads raw CSV from landing zone.
@@ -96,7 +105,7 @@ print(f"   Format        : Delta")
 print(f"   Partition     : ingest_year / ingest_month / ingest_day")
 print(f"   Path          : bronze/customer_onboarding/")
 
-
+# COMMAND ----------
 
 # ── Cell 4: Bronze — Transaction Feed JSON → Delta ──────────────────
 # Reads newline-delimited JSON from landing zone.
@@ -140,7 +149,7 @@ print(f"   Format        : Delta")
 print(f"   Partition     : ingest_year / ingest_month / ingest_day")
 print(f"   Path          : bronze/transaction_feed/")
 
-
+# COMMAND ----------
 
 # ── Cell 5: Bronze — KYC Documents JSON → Delta ─────────────────────
 # Reads JSON array from landing zone.
@@ -182,7 +191,7 @@ print(f"   Format        : Delta")
 print(f"   Partition     : ingest_year / ingest_month / ingest_day")
 print(f"   Path          : bronze/kyc_documents/")
 
-
+# COMMAND ----------
 
 # ── Cell 6: Bronze — Watchlist/Sanctions CSV → Delta ────────────────
 # Reads sanctions list CSV from landing zone.
@@ -224,7 +233,7 @@ print(f"   Format        : Delta")
 print(f"   Partition     : ingest_year / ingest_month / ingest_day")
 print(f"   Path          : bronze/watchlist_sanctions/")
 
-
+# COMMAND ----------
 
 # ── Cell 7: Bronze — Account Activity Parquet → Delta (Autoloader) ──
 # Autoloader monitors landing/account_activity/ continuously.
@@ -237,40 +246,65 @@ from pyspark.sql.functions import (
     year, month, dayofmonth
 )
 
-# Autoloader reads Parquet files using cloudFiles format
-df_activity = spark.read.format("parquet") \
-    .load(f"{landing}/account_activity/account_activity.parquet")
+storage_account_key = dbutils.secrets.get(
+    scope="kyc360-scope",
+    key="adls-storage-key"
+)
+spark.conf.set(
+    "fs.azure.account.key.adlskyc360.dfs.core.windows.net",
+    storage_account_key
+)
 
-# Add ingestion metadata + partition columns
-df_activity = df_activity \
+checkpoint_path = f"{bronze}/_checkpoints/account_activity"
+
+# Real Autoloader — cloudFiles format
+# Monitors landing/account_activity/ continuously
+# Picks up new Parquet files as they arrive
+df_stream = spark.readStream \
+    .format("cloudFiles") \
+    .option("cloudFiles.format", "parquet") \
+    .option("cloudFiles.schemaLocation", checkpoint_path) \
+    .load(f"{landing}/account_activity/")
+
+from pyspark.sql.functions import current_timestamp, lit, year, month, dayofmonth
+
+df_stream = df_stream \
     .withColumn("ingestion_timestamp", current_timestamp()) \
-    .withColumn("source_file", lit("account_activity.parquet")) \
     .withColumn("pipeline", lit("databricks_autoloader")) \
-    .withColumn("ingest_year",  year(current_timestamp())) \
+    .withColumn("ingest_year", year(current_timestamp())) \
     .withColumn("ingest_month", month(current_timestamp())) \
-    .withColumn("ingest_day",   dayofmonth(current_timestamp()))
+    .withColumn("ingest_day", dayofmonth(current_timestamp()))
 
-# Write to bronze as Delta
-df_activity.write \
+query = df_stream.writeStream \
     .format("delta") \
-    .mode("overwrite") \
-    .option("overwriteSchema", "true") \
+    .option("checkpointLocation", checkpoint_path) \
+    .outputMode("append") \
     .partitionBy("ingest_year", "ingest_month", "ingest_day") \
-    .save(f"{bronze}/account_activity/")
+    .trigger(availableNow=True) \
+    .start(f"{bronze}/account_activity/")
 
-row_count = df_activity.count()
+query.awaitTermination()
 
-print(f"✅ Account Activity → Bronze complete.")
-print(f"   Rows written  : {row_count}")
-print(f"   Format        : Delta")
-print(f"   Partition     : ingest_year / ingest_month / ingest_day")
-print(f"   Path          : bronze/account_activity/")
+print(f"✅ Account Activity → Bronze complete via Autoloader.")
+print(f"   Format    : Delta")
+print(f"   Partition : ingest_year / ingest_month / ingest_day")
+print(f"   Path      : bronze/account_activity/")
 
-
+# COMMAND ----------
 
 # ── Cell 8: Verify all 5 Bronze Delta tables ────────────────────────
 # Confirm all tables written correctly.
 # Show row counts and schema for each.
+# This is your screenshot for GitHub.
+
+storage_account_key = dbutils.secrets.get(
+    scope="kyc360-scope",
+    key="adls-storage-key"
+)
+spark.conf.set(
+    "fs.azure.account.key.adlskyc360.dfs.core.windows.net",
+    storage_account_key
+)
 
 print("=== BRONZE LAYER SUMMARY ===\n")
 
@@ -302,10 +336,19 @@ print(f"{'='*40}")
 print(f"Total rows across all Bronze tables: {total_rows}")
 print(f"All tables in Delta format. Ready for Silver layer.")
 
-
+# COMMAND ----------
 
 # ── Cell 9: Show sample rows from each Bronze table ─────────────────
 # Shows data actually landed correctly with correct columns.
+
+storage_account_key = dbutils.secrets.get(
+    scope="kyc360-scope",
+    key="adls-storage-key"
+)
+spark.conf.set(
+    "fs.azure.account.key.adlskyc360.dfs.core.windows.net",
+    storage_account_key
+)
 
 print("=== SAMPLE DATA PREVIEW ===\n")
 
